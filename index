@@ -1,0 +1,297 @@
+import React from "react";
+import { motion } from "framer-motion";
+import {
+  Camera,
+  PackageOpen,
+  Headphones,
+  Truck,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+
+/**
+ * 카페24창업센터 수원영통역점 랜딩 페이지 (One‑Page)
+ * – TailwindCSS, shadcn/ui, lucide‑react 아이콘, Framer Motion 애니메이션 사용
+ * – 섹션: Hero → Features → Quiz CTA → Stats → Testimonials → Pricing → Final CTA → Footer
+ * – 모든 이미지는 프로젝트의 /public/images 폴더 기준 가상 경로로 작성했습니다.
+ */
+
+const features = [
+  {
+    icon: Camera,
+    title: "스튜디오 촬영",
+    desc: "프로급 촬영 장비 & 공간 제공",
+  },
+  {
+    icon: PackageOpen,
+    title: "풀필먼트",
+    desc: "포장·발송 원스톱 처리",
+  },
+  {
+    icon: Headphones,
+    title: "실시간 컨설팅",
+    desc: "전문 MD/마케터 상주",
+  },
+  {
+    icon: Truck,
+    title: "특가 택배",
+    desc: "우체국 계약가로 당일 발송",
+  },
+];
+
+export default function Cafe24SuwonLanding() {
+  return (
+    <div className="font-sans text-gray-800 scroll-smooth">
+      {/* ───────────────────────── HERO ───────────────────────── */}
+      <section
+        id="hero"
+        className="relative h-[90vh] bg-[url('/images/hero.jpg')] bg-cover bg-center flex items-center after:absolute after:inset-0 after:bg-black/50"
+      >
+        <div className="relative z-10 container mx-auto px-6 lg:px-12">
+          <motion.h1
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="text-4xl md:text-6xl font-extrabold text-white drop-shadow-lg leading-tight"
+          >
+            온라인 쇼핑몰을 위한
+            <br /> 시스템형 오피스
+          </motion.h1>
+          <p className="mt-6 text-lg md:text-2xl text-white/90 max-w-lg">
+            촬영·포장·컨설팅을 한 번에. 영통역 4분, 월 30만 원대.
+          </p>
+          <div className="mt-8 flex gap-4">
+            <Button size="lg" className="text-lg px-8 rounded-2xl shadow-xl">
+              1일 무료 체험 예약
+            </Button>
+            <Button
+              variant="secondary"
+              size="lg"
+              className="text-lg px-8 rounded-2xl bg-white/20 backdrop-blur-md text-white border-white"
+            >
+              5문항 셀프진단
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* ───────────────────────── FEATURES ───────────────────────── */}
+      <section id="features" className="py-16 bg-white">
+        <div className="container mx-auto px-6 lg:px-12">
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">
+            왜 카페24창업센터 수원영통역점인가?
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {features.map(({ icon: Icon, title, desc }, idx) => (
+              <Card
+                key={idx}
+                className="rounded-2xl shadow hover:shadow-lg transition"
+              >
+                <CardContent className="p-6 flex flex-col items-center text-center">
+                  <Icon size={48} className="mb-4 text-indigo-600" />
+                  <h3 className="font-semibold text-xl mb-2">{title}</h3>
+                  <p className="text-gray-600">{desc}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ───────────────────────── QUIZ CTA ───────────────────────── */}
+      <section id="quiz" className="py-20 bg-gray-900 text-white">
+        <div className="container mx-auto px-6 lg:px-12 flex flex-col md:flex-row items-center gap-12">
+          <div className="flex-1">
+            <h2 className="text-3xl md:text-4xl font-bold leading-tight">
+              5문항 셀프 진단으로
+              <br /> 맞춤 솔루션 PDF 받기
+            </h2>
+            <p className="mt-4 text-lg text-gray-300 max-w-md">
+              간단한 질문에 답하면, 내 쇼핑몰 규모에 맞춘 비용·공간 가이드를
+              즉시 이메일로 보내드립니다.
+            </p>
+            <Button size="lg" className="mt-6 text-lg px-8 rounded-2xl">
+              지금 시작하기
+            </Button>
+          </div>
+          <div className="flex-1">
+            <img
+              src="/images/quiz-preview.png"
+              alt="퀴즈 미리보기"
+              className="rounded-2xl shadow-lg"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* ───────────────────────── STATS ───────────────────────── */}
+      <section className="py-16 bg-[#f9fafb]">
+        <div className="container mx-auto px-6 lg:px-12 text-center">
+          <h2 className="text-3xl md:text-4xl font-bold mb-8">입주 후 평균 성과</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+            <div>
+              <p className="text-5xl font-extrabold text-indigo-600">+32%</p>
+              <p className="mt-2 text-gray-600">매출 증가</p>
+            </div>
+            <div>
+              <p className="text-5xl font-extrabold text-indigo-600">-40%</p>
+              <p className="mt-2 text-gray-600">배송 지연</p>
+            </div>
+            <div>
+              <p className="text-5xl font-extrabold text-indigo-600">95h</p>
+              <p className="mt-2 text-gray-600">월간 업무시간 절감</p>
+            </div>
+            <div>
+              <p className="text-5xl font-extrabold text-indigo-600">90%</p>
+              <p className="mt-2 text-gray-600">3개월 유지율</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ───────────────────────── TESTIMONIALS ───────────────────────── */}
+      <section id="testimonials" className="py-16 bg-white">
+        <div className="container mx-auto px-6 lg:px-12">
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">
+            입주사 리얼 후기
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {[1, 2, 3].map((n) => (
+              <Card
+                key={n}
+                className="rounded-2xl shadow transition hover:shadow-lg"
+              >
+                <CardContent className="p-6">
+                  <p className="italic">
+                    “촬영·포장·CS를 한곳에서 해결, 출고가 3배 빨라졌어요.”
+                  </p>
+                  <div className="mt-4 flex items-center gap-3">
+                    <img
+                      src={`/images/clients/client${n}.jpg`}
+                      className="w-10 h-10 rounded-full object-cover"
+                      alt={`client${n}`}
+                    />
+                    <div>
+                      <p className="font-semibold">드로잉베어 대표</p>
+                      <p className="text-sm text-gray-500">패션·액세서리몰</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ───────────────────────── PRICING ───────────────────────── */}
+      <section id="pricing" className="py-20 bg-gray-900 text-white">
+        <div className="container mx-auto px-6 lg:px-12 text-center">
+          <h2 className="text-3xl md:text-4xl font-bold mb-8">간단·투명한 요금제</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {/* 1인실 플랜 */}
+            <Card className="rounded-2xl bg-white text-gray-900 shadow-xl">
+              <CardContent className="p-8 flex flex-col h-full">
+                <h3 className="text-2xl font-bold mb-4">1인실</h3>
+                <p className="text-5xl font-extrabold mb-4">₩300k</p>
+                <ul className="text-left space-y-2 mb-6 flex-1">
+                  <li>풀필먼트 1일 100건 포함</li>
+                  <li>공동 스튜디오 이용</li>
+                  <li>전용 우체국 계약가</li>
+                </ul>
+                <Button size="lg" className="w-full rounded-2xl mt-auto">
+                  무료 체험 신청
+                </Button>
+              </CardContent>
+            </Card>
+            {/* 2~4인실 플랜 (샘플) */}
+            <Card className="rounded-2xl bg-white text-gray-900 shadow-xl">
+              <CardContent className="p-8 flex flex-col h-full">
+                <h3 className="text-2xl font-bold mb-4">4인실</h3>
+                <p className="text-5xl font-extrabold mb-4">₩800k</p>
+                <ul className="text-left space-y-2 mb-6 flex-1">
+                  <li>풀필먼트 1일 300건 포함</li>
+                  <li>개별 도어락 & 오피스 가구</li>
+                  <li>주 1회 컨설팅 세션</li>
+                </ul>
+                <Button size="lg" className="w-full rounded-2xl mt-auto">
+                  무료 체험 신청
+                </Button>
+              </CardContent>
+            </Card>
+            {/* 다인실 플랜 (샘플) */}
+            <Card className="rounded-2xl bg-white text-gray-900 shadow-xl">
+              <CardContent className="p-8 flex flex-col h-full">
+                <h3 className="text-2xl font-bold mb-4">다인실 (6인+)</h3>
+                <p className="text-5xl font-extrabold mb-4">맞춤 견적</p>
+                <ul className="text-left space-y-2 mb-6 flex-1">
+                  <li>전용 창고 & 전용 라운지</li>
+                  <li>풀필먼트 커스텀 SLA</li>
+                  <li>전담 Growth 컨설턴트</li>
+                </ul>
+                <Button size="lg" className="w-full rounded-2xl mt-auto">
+                  상담 예약
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+          <p className="mt-6 text-gray-400 text-sm">
+            모든 요금은 VAT 별도 · 3개월 선납 시 1달 무료 혜택
+          </p>
+        </div>
+      </section>
+
+      {/* ───────────────────────── FINAL CTA ───────────────────────── */}
+      <section className="py-24 bg-indigo-600 text-white text-center">
+        <div className="container mx-auto px-6 lg:px-12">
+          <h2 className="text-3xl md:text-4xl font-bold mb-6 leading-tight">
+            오늘 예약하면 3개월 계약 1달 무료 혜택!
+          </h2>
+          <Button size="lg" className="text-lg px-10 rounded-2xl shadow-xl">
+            1일 무료 체험 예약
+          </Button>
+        </div>
+      </section>
+
+      {/* ───────────────────────── FOOTER ───────────────────────── */}
+      <footer className="py-12 bg-gray-800 text-gray-400 text-sm">
+        <div className="container mx-auto px-6 lg:px-12 grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div>
+            <h4 className="text-white font-semibold mb-4">
+              카페24창업센터 수원영통역점
+            </h4>
+            <p>
+              경기 수원시 영통구 영통로 123
+              <br /> 영통역 4번 출구 도보 4분
+            </p>
+            <p className="mt-2">대표 031‑000‑1234</p>
+          </div>
+          <div>
+            <h4 className="text-white font-semibold mb-4">링크</h4>
+            <ul className="space-y-1">
+              <li>
+                <a href="#features" className="hover:underline">
+                  특장점
+                </a>
+              </li>
+              <li>
+                <a href="#pricing" className="hover:underline">
+                  요금제
+                </a>
+              </li>
+              <li>
+                <a href="#quiz" className="hover:underline">
+                  셀프진단
+                </a>
+              </li>
+            </ul>
+          </div>
+          <div>
+            <h4 className="text-white font-semibold mb-4">소셜</h4>
+            <p>Blog · Instagram · YouTube</p>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
