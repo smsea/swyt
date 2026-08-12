@@ -35,6 +35,10 @@ SHADOW_BLUR = 0.022      # 그림자 번짐
 SHADOW_ALPHA = 130
 SHADOW_DY = 0.018        # 그림자 아래로 밀기
 BOOK_TEXT_GAP = 0.025    # 책 아랫변과 헤드라인 사이 최소 간격 (캔버스 높이 대비)
+MIN_TOP = 0.05           # 책 윗변이 캔버스 위로 붙을 수 있는 한계
+WRIST_STRIP = 0.06       # 손목을 이을 때 가져올 단면 두께 (잘라낸 영역 높이 대비)
+WRIST_FADE = 0.18        # 이은 손목이 바닥에서 남길 밝기 — 그림자로 떨어뜨린다
+WRIST_MIN, WRIST_MAX = 0.10, 0.60   # 손목으로 인정할 폭 범위 (최대 폭 대비)
 
 _session = None
 
@@ -117,31 +121,97 @@ def book_bottom_frac(sub: Image.Image) -> float:
     return float(after[0] / len(widths)) if len(after) else 1.0
 
 
+def wrist_cut(sub: Image.Image) -> int | None:
+    """
+    아래로 이어붙일 수 있는 '손목 기둥'이 있는지 보고, 있으면 자를 행을 준다.
+
+    손목은 책보다 훨씬 좁고 폭이 일정한 기둥이다. 아래쪽 10% 의 대표 폭이 그
+    좁은 띠 안에 들어올 때만 손목으로 본다. 어떤 컷은 책 아랫변까지만 찍혀 손목이
+    거의 없는데(팔이 프레임 밖), 그때 억지로 이으면 책의 흰 띠가 아래로 번진다.
+    끝에서 가늘게 사라지는 손가락 끝은 잘라내고 기둥이 온전한 행을 돌려준다.
+    """
+    a = np.asarray(sub.split()[-1])
+    widths = (a > 128).sum(axis=1)
+    mx = int(widths.max())
+    if mx == 0:
+        return None
+
+    tail = widths[int(len(widths) * 0.90):]
+    med = float(np.median(tail))
+    if not (WRIST_MIN * mx <= med <= WRIST_MAX * mx):
+        return None                       # 손목 기둥이 아니다 — 잇지 않는다
+
+    stable = np.where(widths >= med * 0.6)[0]
+    return int(stable[-1]) if len(stable) else None
+
+
+def extend_wrist(sub: Image.Image, target_h: int) -> Image.Image:
+    """
+    잘린 손목 단면을 아래로 이어 캔버스 바닥까지 닿게 한다.
+
+    원본은 손목이 짧게 잘려 있어 그대로 앉히면 팔이 화면 중간에서 끊겨 뜬다.
+    손목은 폭이 거의 일정한 기둥이라 단면을 아래로 늘이면 실루엣이 이어진다.
+    늘인 구간은 아래로 갈수록 어둡게 떨어뜨려 그림자 속으로 들여보낸다.
+    """
+    if target_h <= sub.height:
+        return sub
+
+    cut = wrist_cut(sub)
+    if cut is None:
+        return sub                        # 이을 손목이 없으면 그대로 둔다
+    if cut < sub.height - 1:
+        sub = sub.crop((0, 0, sub.width, cut + 1))
+    if target_h <= sub.height:
+        return sub
+
+    strip_h = max(8, int(sub.height * WRIST_STRIP))
+    strip = sub.crop((0, sub.height - strip_h, sub.width, sub.height))
+    grow = target_h - sub.height + strip_h
+    ext = strip.resize((sub.width, grow), Image.LANCZOS)
+    ext = ext.filter(ImageFilter.GaussianBlur(radius=max(1.0, sub.width * 0.006)))
+
+    # 아래로 갈수록 어둡게 떨어뜨린다. 늘이면서 생긴 세로 줄무늬를 그림자가 덮고,
+    # 팔이 어둠 속으로 들어가는 것처럼 읽힌다.
+    a = np.asarray(ext.convert("RGBA"), dtype=np.float32)
+    fall = np.linspace(1.0, WRIST_FADE, grow, dtype=np.float32)[:, None]
+    a[:, :, :3] *= fall[..., None]
+    ext = Image.fromarray(a.clip(0, 255).astype(np.uint8), mode="RGBA")
+
+    out = Image.new("RGBA", (sub.width, target_h), (0, 0, 0, 0))
+    out.paste(ext, (0, sub.height - strip_h))
+    out.alpha_composite(sub, (0, 0))
+    return out
+
+
 def place_subject(bg: Image.Image, sub: Image.Image, ratio: str,
                   text_top: int | None = None) -> Image.Image:
     """
-    책이 항상 같은 크기로 보이게 앉히되, 헤드라인 위에서 멈추게 한다.
+    책 아랫변을 헤드라인 바로 위에 붙이고, 손목은 캔버스 바닥까지 내린다.
 
     잘라낸 영역에 팔이 얼마나 들어왔는지는 컷마다 다르다. 그래서 '전체를 상자에
     맞추면' 팔이 긴 컷의 책만 작아진다 — 연속 소재에서 책 크기가 흔들린다.
-    책 폭은 어느 컷에서나 잘라낸 영역의 최대 폭이므로 폭을 기준으로 맞추고,
-    책 아랫변이 텍스트 블록을 침범하면 침범하지 않을 때까지 줄인다.
-    팔은 아래로 흘러나가 캔버스에서 잘린다.
+    책 폭은 어느 컷에서나 잘라낸 영역의 최대 폭이므로 폭을 기준으로 크기를 잡고,
+    위치는 책 아랫변을 기준선에 맞춰 정한다. 컷마다 손목 길이가 달라도 책이 같은
+    높이에 앉는다.
     """
     w, h = bg.size
     l, t, r, _ = SUBJECT_BOX[ratio]
-    top = int(t * h)
 
     s = ((r - l) * w * SUBJECT_WIDTH[ratio]) / sub.width
+    bf = book_bottom_frac(sub)
+    top = int(t * h)
 
-    if text_top is not None:
-        bf = book_bottom_frac(sub)
+    if text_top is not None and bf > 0:
         limit = text_top - int(h * BOOK_TEXT_GAP)
-        if bf > 0 and top + sub.height * s * bf > limit:
-            s = max(0.05, (limit - top) / (sub.height * bf))
+        min_top = int(h * MIN_TOP)
+        # 책 아랫변을 기준선에 맞춘다. 그러려면 위로 넘칠 때만 크기를 줄인다.
+        if limit - sub.height * s * bf < min_top:
+            s = max(0.05, (limit - min_top) / (sub.height * bf))
+        top = int(limit - sub.height * s * bf)
 
     nw, nh = max(1, int(sub.width * s)), max(1, int(sub.height * s))
     sub = sub.resize((nw, nh), Image.LANCZOS)
+    sub = extend_wrist(sub, h - top)          # 손목을 바닥까지
 
     x, y = int((w - nw) / 2), top
     out = bg.copy()
