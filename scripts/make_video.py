@@ -22,6 +22,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import (BEATS, FFMPEG, RATIOS, REPO, load_cuts, rel, text_overlay)  # noqa: E402
+from compose import compose_designed  # noqa: E402
 
 VIDEO_RATIOS = ["9x16", "1x1"]
 BEAT_SEC = 4.0
@@ -86,7 +87,8 @@ def concat(segments: list[Path], out: Path, work: Path) -> None:
         check=True, capture_output=True, text=True)
 
 
-def build(ratio: str, beats: list[dict], out_dir: Path, work: Path) -> Path | None:
+def build(ratio: str, beats: list[dict], out_dir: Path, work: Path,
+          style: str = "designed", cache: Path | None = None) -> Path | None:
     w, h = RATIOS[ratio]["size"]
     safe = RATIOS[ratio]["safe"]
     segs = []
@@ -99,7 +101,15 @@ def build(ratio: str, beats: list[dict], out_dir: Path, work: Path) -> Path | No
         fx, fy = b["anchor_v"]
         vid, photo = _resolve(b.get("video_file")), _resolve(b.get("photo"))
 
-        if vid and vid.exists():
+        if style == "designed" and photo and photo.exists():
+            # 정지 소재와 같은 합성 화면(자막 제외)을 만들어 Ken Burns 를 건다.
+            base = work / f"base_{ratio}_{b['id']}.png"
+            compose_designed(photo, b["lines"], ratio, cache,
+                             bg_photo=_resolve(b.get("bg_photo")),
+                             with_text=False, scale=2).save(base)
+            segment_from_photo(base, BEAT_SEC, ov, w, h, fx, fy, seg)
+            print(f"  {b['id']} ← {photo.name} 합성 화면 + Ken Burns {KEN_BURNS}배")
+        elif vid and vid.exists():
             segment_from_video(vid, b["video_start"], BEAT_SEC, ov, w, h, fx, fy, seg)
             print(f"  {b['id']} ← {vid.name} @{b['video_start']}s +{BEAT_SEC}s")
         elif photo and photo.exists():
@@ -124,6 +134,7 @@ def resolve_beats(cuts: dict) -> list[dict]:
         out.append(dict(
             id=b["id"], role=b["role"], lines=b["lines"],
             photo=c.get("photo"),
+            bg_photo=c.get("bg_photo"),
             video_file=v.get("file"),
             video_start=float(v.get("start", 0.0)),
             anchor_v=tuple(c.get("anchor_video", c.get("anchor_v", (0.5, 0.40)))),
@@ -137,6 +148,9 @@ def main() -> int:
     ap.add_argument("--out", default=str(REPO / "소재" / "video"))
     ap.add_argument("--ratio", action="append", help="9x16 / 1x1, 반복 가능")
     ap.add_argument("--keep-work", action="store_true", help="세그먼트 중간물 보존")
+    ap.add_argument("--style", choices=("designed", "raw"), default="designed",
+                    help="designed=합성 화면에 Ken Burns(기본) / raw=원본 영상 구간 사용")
+    ap.add_argument("--cache", default=str(REPO / "소재" / ".cache"))
     a = ap.parse_args()
 
     cuts = load_cuts(a.cuts)
@@ -151,7 +165,7 @@ def main() -> int:
     try:
         for r in ratios:
             print(f"[{r}]")
-            f = build(r, beats, out_dir, work)
+            f = build(r, beats, out_dir, work, style=a.style, cache=Path(a.cache))
             if f:
                 made.append(f)
                 print(f"→ {rel(f)}")

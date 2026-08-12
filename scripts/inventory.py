@@ -244,7 +244,7 @@ def write_markdown(photos: list[dict], videos: list[dict], out: Path, src: Path)
     L.append("# 인벤토리 — 전자책 광고 소재 원본\n")
     L.append(f"- 원본 폴더: `{src}`")
     L.append(f"- 사진 {len(photos)}장 / 영상 {len(videos)}건")
-    L.append("- 「어느 책」·「구도」 칸은 컨택트시트를 눈으로 보고 채운다.")
+    L.append("- 「어느 책」·「구도」 칸은 컨택트시트를 눈으로 보고 `labels.json` 에 적는다.")
     L.append("  - 어느 책: 검색되는 블로그 글쓰기법 / 예약을 부르는 블로그 운영법 / 두 권 함께 / 내지")
     L.append("  - 구도: 표지 정면 / 비스듬 / 손에 든 컷 / 책상 연출 / 펼친 내지 / 여러 권 쌓기")
     L.append("- 나머지 칸은 스크립트가 측정한 값이다.\n")
@@ -254,18 +254,22 @@ def write_markdown(photos: list[dict], videos: list[dict], out: Path, src: Path)
     L.append("| " + " | ".join(PHOTO_HDR) + " |")
     L.append("|" + "---|" * len(PHOTO_HDR))
     for r in photos:
-        L.append("| {f} |  |  | {o} | {w}×{h} | {fo} ({s}) | {e} | {fr} |  |".format(
-            f=r["file"], o=r["orient"], w=r["w"], h=r["h"],
-            fo=r["focus"], s=r["sharp"], e=r["exposure"], fr=r["free"]))
+        L.append("| {f} | {bk} | {sh} | {o} | {w}×{h} | {fo} ({s}) | {e} | {fr} | {n} |".format(
+            f=r["file"], bk=r.get("book", ""), sh=r.get("shot", ""),
+            o=r["orient"], w=r["w"], h=r["h"],
+            fo=r["focus"], s=r["sharp"], e=r["exposure"], fr=r["free"],
+            n=r.get("note", "")))
 
     L.append("\n## 영상\n")
     L.append("| " + " | ".join(VIDEO_HDR) + " |")
     L.append("|" + "---|" * len(VIDEO_HDR))
     for r in videos:
         gs = "-" if r.get("good_start") is None else f"{r['good_start']}s ~ +{r['good_dur']}s"
-        L.append("| {f} |  |  | {o} | {w}×{h} | {d}s | {fp} | {g} | {st} |  |".format(
-            f=r["file"], o=r["orient"], w=r["w"], h=r["h"],
-            d=r["dur"], fp=r["fps"], g=gs, st=r.get("steady", "")))
+        L.append("| {f} | {bk} | {sh} | {o} | {w}×{h} | {d}s | {fp} | {g} | {st} | {n} |".format(
+            f=r["file"], bk=r.get("book", ""), sh=r.get("shot", ""),
+            o=r["orient"], w=r["w"], h=r["h"],
+            d=r["dur"], fp=r["fps"], g=gs, st=r.get("steady", ""),
+            n=r.get("note", "")))
 
     L.append("\n## 품질 상세 (측정값)\n")
     L.append("| 파일 | 선명도 | 노출 평균 | 날림% | 뭉갬% | 여백 점수 |")
@@ -283,6 +287,8 @@ def main() -> int:
     ap.add_argument("--src", required=True, help="원본 사진·영상 폴더")
     ap.add_argument("--out", default=str(REPO / "소재"))
     ap.add_argument("--workers", type=int, default=4)
+    ap.add_argument("--labels", default=str(REPO / "labels.json"),
+                    help="눈으로 판정한 어느 책/구도 분류. 표에 병합한다.")
     a = ap.parse_args()
 
     src, out = Path(a.src), Path(a.out)
@@ -306,6 +312,18 @@ def main() -> int:
 
     photos.sort(key=lambda r: r["file"])
     videos.sort(key=lambda r: r["file"])
+
+    labels = {}
+    lp = Path(a.labels)
+    if lp.exists():
+        with open(lp, encoding="utf-8") as f:
+            labels = json.load(f).get("labels", {})
+        print(f"분류 {len(labels)}건 병합: {lp.name}")
+    for r in photos + videos:
+        lab = labels.get(r["file"], {})
+        r["book"] = lab.get("book", "")
+        r["shot"] = lab.get("shot", "")
+        r["note"] = lab.get("note", "")
 
     contact_sheet(photos, out / "contact_photos.jpg")
     contact_sheet(videos, out / "contact_videos.jpg")

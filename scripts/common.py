@@ -194,6 +194,19 @@ def bottom_scrim(size: tuple[int, int], top_frac: float = 0.46, strength: int = 
     return layer
 
 
+def text_block_top(size: tuple[int, int], lines: list[str], safe: tuple[float, float]) -> int:
+    """텍스트 블록이 시작되는 y. 합성 쪽에서 피사체가 글자를 덮지 않게 쓰는 기준선."""
+    w, h = size
+    probe = ImageDraw.Draw(Image.new("RGBA", (8, 8)))
+    x = int(w * SIDE_MARGIN)
+    font = fit_font(probe, lines, w - 2 * x, int(w * HEADLINE_SCALE))
+    bfont = _font(max(12, int(w * BRAND_SCALE)))
+    asc, desc = font.getmetrics()
+    line_h = int((asc + desc) * LINE_SPACING)
+    block = line_h * len(lines) + int(font.size * BRAND_GAP) + sum(bfont.getmetrics())
+    return max(int(h * safe[0]), h - int(h * safe[1]) - block)
+
+
 def text_overlay(size: tuple[int, int], lines: list[str], safe: tuple[float, float],
                  brand: str = BRAND, scrim: bool = True) -> Image.Image:
     """

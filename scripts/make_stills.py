@@ -17,6 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import (BEATS, JPEG_QUALITY, RATIOS, REPO, compose_still,  # noqa: E402
                     load_cuts, load_image, rel)
+from compose import compose_designed  # noqa: E402
 
 
 def resolve_beats(cuts: dict) -> list[dict]:
@@ -28,6 +29,7 @@ def resolve_beats(cuts: dict) -> list[dict]:
         out.append(dict(
             id=b["id"], role=b["role"], lines=b["lines"],
             photo=c.get("photo"),
+            bg_photo=c.get("bg_photo"),
             anchor=tuple(c["anchor"]) if c.get("anchor") else None,
         ))
     return out
@@ -39,6 +41,9 @@ def main() -> int:
     ap.add_argument("--out", default=str(REPO / "소재" / "stills"))
     ap.add_argument("--beat", action="append", help="특정 비트만 (b1/b2/b3), 반복 가능")
     ap.add_argument("--ratio", action="append", help="특정 비율만 (1x1/4x5/9x16), 반복 가능")
+    ap.add_argument("--style", choices=("designed", "crop"), default="designed",
+                    help="designed=배경 재구성 후 합성(기본) / crop=원본 크롭 위에 텍스트")
+    ap.add_argument("--cache", default=str(REPO / "소재" / ".cache"))
     a = ap.parse_args()
 
     cuts = load_cuts(a.cuts)
@@ -62,9 +67,16 @@ def main() -> int:
             missing.append(f"{b['id']}: 사진 없음 {p}")
             continue
 
-        photo = load_image(p)          # exif_transpose 적용
+        bg = Path(b["bg_photo"]) if b.get("bg_photo") else None
+        if bg is not None and not bg.is_absolute():
+            bg = REPO / bg
+        photo = load_image(p) if a.style == "crop" else None   # exif_transpose 적용
+
         for r in ratios:
-            img = compose_still(photo, b["lines"], r, anchor=b["anchor"])
+            if a.style == "designed":
+                img = compose_designed(p, b["lines"], r, Path(a.cache), bg_photo=bg)
+            else:
+                img = compose_still(photo, b["lines"], r, anchor=b["anchor"])
             fp = out / f"{b['id']}_{r}.jpg"
             img.save(fp, "JPEG", quality=JPEG_QUALITY, subsampling=1, optimize=True)
             made.append(fp)

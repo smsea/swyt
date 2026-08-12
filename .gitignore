@@ -3,6 +3,7 @@
 소재/video/
 소재/thumbs/
 소재/.tmp/
+소재/.cache/
 소재/contact_*.jpg
 
 # inventory.md / inventory.json / inventory.csv 는 기록으로 남기므로 추적한다
