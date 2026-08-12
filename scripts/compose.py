@@ -24,8 +24,10 @@ SUBJECT_BOX = {
     "9x16": (0.11, 0.15, 0.89, 0.62),
 }
 
-# 잘라낸 영역의 폭을 상자 폭의 몇 배로 앉힐지 — 책 크기를 컷마다 일정하게 만든다
-SUBJECT_WIDTH = {"1x1": 0.62, "4x5": 0.66, "9x16": 0.68}
+
+# 책이 캔버스 높이의 몇 %를 차지할지 — 기울기·소품과 무관하게 컷마다 같은 크기로 보이게
+BOOK_HEIGHT = {"1x1": 0.42, "4x5": 0.50, "9x16": 0.46}
+MAX_WIDTH = 0.82         # 비스듬한 컷이 옆으로 넘치지 않게 하는 폭 상한
 
 BLUR_FRAC = 0.030        # 배경 흐림 (캔버스 너비 대비)
 BG_SAT = 0.90            # 배경 채도 — 장소색은 남기되 책이 주인공이 되게
@@ -36,9 +38,6 @@ SHADOW_ALPHA = 130
 SHADOW_DY = 0.018        # 그림자 아래로 밀기
 BOOK_TEXT_GAP = 0.025    # 책 아랫변과 헤드라인 사이 최소 간격 (캔버스 높이 대비)
 MIN_TOP = 0.05           # 책 윗변이 캔버스 위로 붙을 수 있는 한계
-WRIST_STRIP = 0.06       # 손목을 이을 때 가져올 단면 두께 (잘라낸 영역 높이 대비)
-WRIST_FADE = 0.18        # 이은 손목이 바닥에서 남길 밝기 — 그림자로 떨어뜨린다
-WRIST_MIN, WRIST_MAX = 0.10, 0.60   # 손목으로 인정할 폭 범위 (최대 폭 대비)
 
 _session = None
 
@@ -121,99 +120,39 @@ def book_bottom_frac(sub: Image.Image) -> float:
     return float(after[0] / len(widths)) if len(after) else 1.0
 
 
-def wrist_cut(sub: Image.Image) -> int | None:
-    """
-    아래로 이어붙일 수 있는 '손목 기둥'이 있는지 보고, 있으면 자를 행을 준다.
-
-    손목은 책보다 훨씬 좁고 폭이 일정한 기둥이다. 아래쪽 10% 의 대표 폭이 그
-    좁은 띠 안에 들어올 때만 손목으로 본다. 어떤 컷은 책 아랫변까지만 찍혀 손목이
-    거의 없는데(팔이 프레임 밖), 그때 억지로 이으면 책의 흰 띠가 아래로 번진다.
-    끝에서 가늘게 사라지는 손가락 끝은 잘라내고 기둥이 온전한 행을 돌려준다.
-    """
-    a = np.asarray(sub.split()[-1])
-    widths = (a > 128).sum(axis=1)
-    mx = int(widths.max())
-    if mx == 0:
-        return None
-
-    tail = widths[int(len(widths) * 0.90):]
-    med = float(np.median(tail))
-    if not (WRIST_MIN * mx <= med <= WRIST_MAX * mx):
-        return None                       # 손목 기둥이 아니다 — 잇지 않는다
-
-    stable = np.where(widths >= med * 0.6)[0]
-    return int(stable[-1]) if len(stable) else None
-
-
-def extend_wrist(sub: Image.Image, target_h: int) -> Image.Image:
-    """
-    잘린 손목 단면을 아래로 이어 캔버스 바닥까지 닿게 한다.
-
-    원본은 손목이 짧게 잘려 있어 그대로 앉히면 팔이 화면 중간에서 끊겨 뜬다.
-    손목은 폭이 거의 일정한 기둥이라 단면을 아래로 늘이면 실루엣이 이어진다.
-    늘인 구간은 아래로 갈수록 어둡게 떨어뜨려 그림자 속으로 들여보낸다.
-    """
-    if target_h <= sub.height:
-        return sub
-
-    cut = wrist_cut(sub)
-    if cut is None:
-        return sub                        # 이을 손목이 없으면 그대로 둔다
-    if cut < sub.height - 1:
-        sub = sub.crop((0, 0, sub.width, cut + 1))
-    if target_h <= sub.height:
-        return sub
-
-    strip_h = max(8, int(sub.height * WRIST_STRIP))
-    strip = sub.crop((0, sub.height - strip_h, sub.width, sub.height))
-    grow = target_h - sub.height + strip_h
-    ext = strip.resize((sub.width, grow), Image.LANCZOS)
-    ext = ext.filter(ImageFilter.GaussianBlur(radius=max(1.0, sub.width * 0.006)))
-
-    # 아래로 갈수록 어둡게 떨어뜨린다. 늘이면서 생긴 세로 줄무늬를 그림자가 덮고,
-    # 팔이 어둠 속으로 들어가는 것처럼 읽힌다.
-    a = np.asarray(ext.convert("RGBA"), dtype=np.float32)
-    fall = np.linspace(1.0, WRIST_FADE, grow, dtype=np.float32)[:, None]
-    a[:, :, :3] *= fall[..., None]
-    ext = Image.fromarray(a.clip(0, 255).astype(np.uint8), mode="RGBA")
-
-    out = Image.new("RGBA", (sub.width, target_h), (0, 0, 0, 0))
-    out.paste(ext, (0, sub.height - strip_h))
-    out.alpha_composite(sub, (0, 0))
-    return out
-
-
 def place_subject(bg: Image.Image, sub: Image.Image, ratio: str,
-                  text_top: int | None = None) -> Image.Image:
+                  text_top: int | None = None, subject_scale: float = 1.0) -> Image.Image:
     """
-    책 아랫변을 헤드라인 바로 위에 붙이고, 손목은 캔버스 바닥까지 내린다.
+    책 아랫변을 헤드라인 바로 위 기준선에 맞춰 앉힌다.
 
-    잘라낸 영역에 팔이 얼마나 들어왔는지는 컷마다 다르다. 그래서 '전체를 상자에
-    맞추면' 팔이 긴 컷의 책만 작아진다 — 연속 소재에서 책 크기가 흔들린다.
-    책 폭은 어느 컷에서나 잘라낸 영역의 최대 폭이므로 폭을 기준으로 크기를 잡고,
-    위치는 책 아랫변을 기준선에 맞춰 정한다. 컷마다 손목 길이가 달라도 책이 같은
-    높이에 앉는다.
+    크기는 '책 높이'로 정한다. 폭 기준으로 잡으면 비스듬한 컷이나 소품·손이 함께
+    잘린 컷에서 책만 작아져 비트마다 크기가 흔들린다.
+    피사체는 비율 그대로 통째로 움직인다. 늘이거나 눌러 붙이지 않는다 —
+    손목만 늘였더니 고무팔이 됐다. 화면 밖으로 나가는 부분은 그냥 잘린다.
+    화병처럼 소품이 함께 잘려 높이 기준이 흔들리는 컷은 cuts.json 의
+    subject_scale 로 미세 조정한다.
     """
     w, h = bg.size
-    l, t, r, _ = SUBJECT_BOX[ratio]
-
-    s = ((r - l) * w * SUBJECT_WIDTH[ratio]) / sub.width
     bf = book_bottom_frac(sub)
-    top = int(t * h)
+    limit = (text_top if text_top is not None else int(h * 0.62)) - int(h * BOOK_TEXT_GAP)
+    min_top = int(h * MIN_TOP)
 
-    if text_top is not None and bf > 0:
-        limit = text_top - int(h * BOOK_TEXT_GAP)
-        min_top = int(h * MIN_TOP)
-        # 책 아랫변을 기준선에 맞춘다. 그러려면 위로 넘칠 때만 크기를 줄인다.
-        if limit - sub.height * s * bf < min_top:
-            s = max(0.05, (limit - min_top) / (sub.height * bf))
-        top = int(limit - sub.height * s * bf)
+    # 책 '높이'를 기준으로 크기를 정한다. 폭 기준으로 잡으면 비스듬한 컷이나
+    # 소품이 함께 잘린 컷에서 책만 작아진다 — 비트마다 책 크기가 흔들린다.
+    book_h = BOOK_HEIGHT[ratio] * h
+    book_h = min(book_h, limit - min_top)
+    s = book_h * subject_scale / max(1.0, sub.height * bf)
+    if sub.width * s > w * MAX_WIDTH:            # 비스듬한 컷이 옆으로 넘치지 않게
+        s = w * MAX_WIDTH / sub.width
 
     nw, nh = max(1, int(sub.width * s)), max(1, int(sub.height * s))
     sub = sub.resize((nw, nh), Image.LANCZOS)
-    sub = extend_wrist(sub, h - top)          # 손목을 바닥까지
 
-    x, y = int((w - nw) / 2), top
+    # 책 아랫변을 헤드라인 바로 위 기준선에 맞춘다. 손·소품은 비율 그대로 따라
+    # 내려가고, 화면 밖으로 나가는 부분은 자연스럽게 잘린다.
+    x = int((w - nw) / 2)
+    y = int(limit - nh * bf)
+    y = max(min_top if nh * bf >= h * 0.2 else 0, y)
     out = bg.copy()
     out.alpha_composite(_shadow(sub, w, (w, h), (x, y)))
     out.alpha_composite(sub, (x, y))
@@ -222,7 +161,8 @@ def place_subject(bg: Image.Image, sub: Image.Image, ratio: str,
 
 def compose_designed(photo: Path, lines: list[str], ratio: str,
                      cache_dir: Path, bg_photo: Path | None = None,
-                     with_text: bool = True, scale: int = 1) -> Image.Image:
+                     with_text: bool = True, scale: int = 1,
+                     subject_scale: float = 1.0) -> Image.Image:
     """
     배경 재구성 + 책 합성 (+ 스크림/텍스트).
 
@@ -236,7 +176,8 @@ def compose_designed(photo: Path, lines: list[str], ratio: str,
     src = load_image(bg_photo or photo)
     canvas = make_background(src, w, h)
     text_top = text_block_top((w, h), lines, spec["safe"])
-    canvas = place_subject(canvas, cutout(photo, cache_dir), ratio, text_top=text_top)
+    canvas = place_subject(canvas, cutout(photo, cache_dir), ratio, text_top=text_top,
+                           subject_scale=subject_scale)
     if with_text:
         canvas.alpha_composite(text_overlay((w, h), lines, spec["safe"]))
     return canvas.convert("RGB")

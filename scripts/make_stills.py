@@ -30,6 +30,7 @@ def resolve_beats(cuts: dict) -> list[dict]:
             id=b["id"], role=b["role"], lines=b["lines"],
             photo=c.get("photo"),
             bg_photo=c.get("bg_photo"),
+            subject_scale=float(c.get("subject_scale", 1.0)),
             anchor=tuple(c["anchor"]) if c.get("anchor") else None,
         ))
     return out
@@ -74,7 +75,8 @@ def main() -> int:
 
         for r in ratios:
             if a.style == "designed":
-                img = compose_designed(p, b["lines"], r, Path(a.cache), bg_photo=bg)
+                img = compose_designed(p, b["lines"], r, Path(a.cache), bg_photo=bg,
+                                       subject_scale=b.get("subject_scale", 1.0))
             else:
                 img = compose_still(photo, b["lines"], r, anchor=b["anchor"])
             fp = out / f"{b['id']}_{r}.jpg"

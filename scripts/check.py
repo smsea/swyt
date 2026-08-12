@@ -88,11 +88,14 @@ def check_text_geometry(rep: Report) -> None:
                         f"폰트 {font.size}px")
 
 
-def check_stills(rep: Report, folder: Path) -> None:
+def check_stills(rep: Report, folder: Path, expect: str = "all") -> None:
     if not folder.is_dir():
         rep.add(WARN, "정지 소재", f"폴더 없음 {rel(folder)} — 아직 생성 전")
         return
-    expected = {f"{b['id']}_{r}.jpg" for b in BEATS for r in RATIOS}
+    if expect == "all":
+        expected = {f"{b['id']}_{r}.jpg" for b in BEATS for r in RATIOS}
+    else:
+        expected = {f"{n.strip()}.jpg" for n in expect.split(",") if n.strip()}
     found = {p.name for p in folder.glob("*.jpg")}
     for miss in sorted(expected - found):
         rep.add(BAD, "정지 소재 누락", miss)
@@ -172,6 +175,8 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--stills", default=str(REPO / "소재" / "stills"))
     ap.add_argument("--video", default=str(REPO / "소재" / "video"))
+    ap.add_argument("--expect", default="all",
+                    help='기대하는 정지 소재. "all"(비트3×비율3) 또는 "b1_4x5,b3_4x5" 처럼 지정')
     a = ap.parse_args()
 
     rep = Report()
@@ -185,7 +190,7 @@ def main() -> int:
     print("\n── 텍스트 배치 ──")
     check_text_geometry(rep)
     print("\n── 정지 소재 ──")
-    check_stills(rep, Path(a.stills))
+    check_stills(rep, Path(a.stills), a.expect)
     print("\n── 영상 소재 ──")
     check_video(rep, Path(a.video))
 

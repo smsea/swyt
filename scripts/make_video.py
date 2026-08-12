@@ -106,7 +106,8 @@ def build(ratio: str, beats: list[dict], out_dir: Path, work: Path,
             base = work / f"base_{ratio}_{b['id']}.png"
             compose_designed(photo, b["lines"], ratio, cache,
                              bg_photo=_resolve(b.get("bg_photo")),
-                             with_text=False, scale=2).save(base)
+                             with_text=False, scale=2,
+                             subject_scale=b.get("subject_scale", 1.0)).save(base)
             segment_from_photo(base, BEAT_SEC, ov, w, h, fx, fy, seg)
             print(f"  {b['id']} ← {photo.name} 합성 화면 + Ken Burns {KEN_BURNS}배")
         elif vid and vid.exists():
@@ -135,6 +136,7 @@ def resolve_beats(cuts: dict) -> list[dict]:
             id=b["id"], role=b["role"], lines=b["lines"],
             photo=c.get("photo"),
             bg_photo=c.get("bg_photo"),
+            subject_scale=float(c.get("subject_scale", 1.0)),
             video_file=v.get("file"),
             video_start=float(v.get("start", 0.0)),
             anchor_v=tuple(c.get("anchor_video", c.get("anchor_v", (0.5, 0.40)))),
