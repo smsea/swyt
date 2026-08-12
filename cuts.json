@@ -1,0 +1,41 @@
+{
+  "_설명": [
+    "컷 배정표. 0단계 인벤토리(소재/inventory.md)를 보고 photo / video 만 바꾼다.",
+    "카피는 확정본이라 여기서 바꾸지 않는다 (scripts/common.py 의 BEATS).",
+    "배정 원칙 — b1: 단권 표지 / b2: 다른 책 표지 또는 내지 / b3: 두 권이 함께 잡힌 컷.",
+    "photo: 정지 소재용 사진. 영상에서 쓸 구간이 없을 때 Ken Burns 대체분으로도 쓰인다.",
+    "video.file + video.start: 0단계에서 기록한 '좋은 구간' 시작 초. 비트당 4초를 잘라 쓴다.",
+    "anchor: [x, y] 0~1. 정지 소재 크롭 기준점을 손으로 잡고 싶을 때만 쓴다. 없으면 자동.",
+    "anchor_video: [x, y] 0~1. 영상 크롭 기준점. 기본값 [0.5, 0.40]."
+  ],
+  "brand": "다미앤마케팅",
+  "beats": [
+    {
+      "id": "b1",
+      "_비트": "문제 제기 — 매일 글 쓰는데 / 예약은 왜 안 늘까",
+      "_배정": "단권 표지",
+      "photo": null,
+      "video": { "file": null, "start": 0.0 },
+      "anchor": null,
+      "anchor_video": [0.5, 0.4]
+    },
+    {
+      "id": "b2",
+      "_비트": "인식 전환 — 글쓰기가 아니라 / 구조의 문제였습니다",
+      "_배정": "다른 책 표지 또는 내지",
+      "photo": null,
+      "video": { "file": null, "start": 0.0 },
+      "anchor": null,
+      "anchor_video": [0.5, 0.4]
+    },
+    {
+      "id": "b3",
+      "_비트": "해결 제시 — 검색부터 예약까지 / 구조로 완성합니다",
+      "_배정": "두 권이 함께 잡힌 컷",
+      "photo": null,
+      "video": { "file": null, "start": 0.0 },
+      "anchor": null,
+      "anchor_video": [0.5, 0.4]
+    }
+  ]
+}

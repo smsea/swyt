@@ -1,0 +1,11 @@
+# 생성물 — 원본에서 언제든 다시 구울 수 있으므로 저장소에 넣지 않는다
+소재/stills/
+소재/video/
+소재/thumbs/
+소재/.tmp/
+소재/contact_*.jpg
+
+# inventory.md / inventory.json / inventory.csv 는 기록으로 남기므로 추적한다
+
+__pycache__/
+*.pyc
